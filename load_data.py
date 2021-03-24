@@ -10,7 +10,7 @@ def unpickle(file):
 def load_batch(file):
     dict = unpickle(file)
     one_hot = one_hot_encoder(dict[b'labels'])
-    return {'data': dict[b'data'],
+    return {'data': dict[b'data'].T,
             'labels': dict[b'labels'],
             'one_hot': one_hot}
 
