@@ -14,5 +14,3 @@ def load_batch(file):
             'labels': dict[b'labels'],
             'one_hot': one_hot}
 
-
-n_dict = load_batch("cifar-10-batches-py/data_batch_1")

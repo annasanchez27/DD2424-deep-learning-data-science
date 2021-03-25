@@ -10,7 +10,7 @@ class Classifier:
     def predict(self, X):
         return softmax(np.dot(self.W,X)+self.b)
 
-    def compute_cost(self,X,labels_onehot,prediction,lambda_reg=1.0):
+    def compute_cost(self,X,labels_onehot,prediction,lambda_reg=0.0):
         """Equation number (5) in the paper"""
         num_datapoints = X.shape[1]
         entr = self._cross_entropy(labels_onehot, prediction)
@@ -35,6 +35,27 @@ class Classifier:
         j_wrt_b = 1/n*np.dot(g_batch,np.ones((n,1)))
         return j_wtr_w,j_wrt_b
 
+
+
+    def mini_batch(self,X,Y,n_batch,eta,n_epochs,lamda):
+        n = X.shape[1]
+        for _ in range(n_epochs):
+            for j in range(int(n/n_batch)):
+                j = j + 1
+                j_start = (j - 1) * n_batch + 1
+                j_end = j*n_batch
+                X_batch = X[:, j_start:j_end]
+                Y_batch = Y[:,j_start:j_end]
+                prediction = self.predict(X_batch)
+                j_wtr_w,j_wrt_b = self.compute_gradients(X_batch,Y_batch,prediction,lamda)
+                self.W = self.W - eta*j_wtr_w
+                self.b = self.b - eta*j_wrt_b
+            prediction_all = self.predict(X)
+            cost = self.compute_cost(X, Y, prediction_all, lamda)
+            print(cost)
+
+
+    #Analytical functions
     def ComputeCost(self, X, Y, W, b, lamda):
         """Equation number (5) in the paper"""
         num_datapoints = X.shape[1]
