@@ -37,22 +37,31 @@ class Classifier:
 
 
 
-    def mini_batch(self,X,Y,n_batch,eta,n_epochs,lamda):
-        n = X.shape[1]
+    def mini_batch(self,X_train,Y_train,X_val,Y_val,n_batch,eta,n_epochs,lamda):
+        n = X_train.shape[1]
+        error_train =[]
+        error_val = []
         for _ in range(n_epochs):
             for j in range(int(n/n_batch)):
                 j = j + 1
                 j_start = (j - 1) * n_batch + 1
                 j_end = j*n_batch
-                X_batch = X[:, j_start:j_end]
-                Y_batch = Y[:,j_start:j_end]
+                X_batch = X_train[:, j_start:j_end]
+                Y_batch = Y_train[:,j_start:j_end]
                 prediction = self.predict(X_batch)
                 j_wtr_w,j_wrt_b = self.compute_gradients(X_batch,Y_batch,prediction,lamda)
                 self.W = self.W - eta*j_wtr_w
                 self.b = self.b - eta*j_wrt_b
-            prediction_all = self.predict(X)
-            cost = self.compute_cost(X, Y, prediction_all, lamda)
-            print(cost)
+
+            prediction_train = self.predict(X_train)
+            cost_train = self.compute_cost(X_train, Y_train, prediction_train, lamda)
+            prediction_val = self.predict(X_val)
+            cost_val = self.compute_cost(X_val, Y_val, prediction_val, lamda)
+            error_train.append(cost_train)
+            error_val.append(cost_val)
+
+        return {'loss_train':error_train,
+                'loss_val':error_val}
 
 
     #Analytical functions

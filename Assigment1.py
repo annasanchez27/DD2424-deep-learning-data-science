@@ -1,7 +1,7 @@
 from load_data import load_batch
 from classifier import Classifier
 import numpy as np
-
+from utils import montage,error_plot
 
 
 def load_data():
@@ -46,8 +46,12 @@ def main():
     print("gradient_w well calculated:",check_matrices(j_wrt_w,gradient_num[0]))
     print("gradient_b well calculated:", check_matrices(j_wrt_b, gradient_num[1]))
     """
-    classifier.mini_batch(data['train_data']['data'],data['train_data']['one_hot'],n_batch=100,eta=0.001,n_epochs=40,lamda=0)
+    loss = classifier.mini_batch(data['train_data']['data'],data['train_data']['one_hot'],
+                                        data['validation_data']['data'],data['validation_data']['one_hot'],
+                                        n_batch=100,eta=0.1,n_epochs=40,lamda=0)
+    error_plot(loss['loss_train'],loss['loss_val'])
     prediction_test = classifier.predict(data['test_data']['data'])
+    montage(classifier.W)
     acc_test = classifier.compute_accuracy(data['test_data'],prediction_test)
     print("Accuracy in test set:", acc_test)
 
