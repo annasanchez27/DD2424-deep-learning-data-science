@@ -30,7 +30,7 @@ def main():
     """
     loss = classifier.mini_batch(data['train_data']['data'],data['train_data']['one_hot'],
                                         data['validation_data']['data'],data['validation_data']['one_hot'],
-                                        n_batch=100,eta=0.1,n_epochs=40,lamda=0)
+                                        n_batch=100,eta=0.001,n_epochs=40,lamda=1)
     error_plot(loss['loss_train'],loss['loss_val'])
     prediction_test = classifier.predict(data['test_data']['data'])
     montage(classifier.W)
