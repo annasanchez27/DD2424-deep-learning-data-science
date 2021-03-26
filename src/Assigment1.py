@@ -1,27 +1,9 @@
-from load_data import load_batch
-from classifier import Classifier
+from data.load_data import load_data,preprocessing
+from data.classifier import Classifier
 import numpy as np
 from utils import montage,error_plot
 
 
-def load_data():
-    train_data = load_batch("cifar-10-batches-py/data_batch_1")
-    validation_data = load_batch("cifar-10-batches-py/data_batch_2")
-    test_data = load_batch("cifar-10-batches-py/test_batch")
-
-    return {'train_data':train_data,
-            'validation_data': validation_data,
-            'test_data': test_data}
-
-def preprocessing(data):
-    mean_x = np.mean(data['train_data']['data'],axis=1)
-    mean_x = mean_x[:, np.newaxis]
-    std_x = np.std(data['train_data']['data'],axis=1)
-    std_x = std_x[:,np.newaxis]
-    data['train_data']['data'] = (data['train_data']['data'] - mean_x)/std_x
-    data['test_data']['data'] = (data['test_data']['data'] - mean_x) / std_x
-    data['validation_data']['data'] = (data['validation_data']['data'] - mean_x) / std_x
-    return data
 
 
 def check_matrices(a_anal,a_num):

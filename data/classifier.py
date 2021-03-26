@@ -1,9 +1,10 @@
 import numpy as np
-from utils import softmax
+from src.utils import softmax
 
 class Classifier:
 
     def __init__(self,dim_images,num_labels):
+        np.random.seed(400)
         self.W = np.random.normal(0, 0.01, size=(num_labels, dim_images))
         self.b = np.random.normal(0, 0.01, size=(num_labels, 1))
 
