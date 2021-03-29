@@ -42,7 +42,7 @@ class Classifier:
         n = X_train.shape[1]
         error_train =[]
         error_val = []
-        for _ in range(n_epochs):
+        for i in range(n_epochs):
             for j in range(int(n/n_batch)):
                 j = j + 1
                 j_start = (j - 1) * n_batch + 1
@@ -56,6 +56,7 @@ class Classifier:
 
             prediction_train = self.predict(X_train)
             cost_train = self.compute_cost(X_train, Y_train, prediction_train, lamda)
+            print("Epoch #" + str(i) + " Loss:"+ str(cost_train))
             prediction_val = self.predict(X_val)
             cost_val = self.compute_cost(X_val, Y_val, prediction_val, lamda)
             error_train.append(cost_train)

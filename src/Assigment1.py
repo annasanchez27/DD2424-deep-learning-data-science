@@ -15,6 +15,7 @@ def check_matrices(a_anal,a_num):
 def main():
     data = load_data()
     data = preprocessing(data)
+    print("Preprocessing done!")
     classifier = Classifier(dim_images=len(data['train_data']['data']),
                             num_labels=len(data['train_data']['one_hot']))
     """
@@ -30,7 +31,7 @@ def main():
     """
     loss = classifier.mini_batch(data['train_data']['data'],data['train_data']['one_hot'],
                                         data['validation_data']['data'],data['validation_data']['one_hot'],
-                                        n_batch=100,eta=0.001,n_epochs=40,lamda=1)
+                                        n_batch=100,eta=0.001,n_epochs=40,lamda=0)
     error_plot(loss['loss_train'],loss['loss_val'])
     prediction_test = classifier.predict(data['test_data']['data'])
     montage(classifier.W)
