@@ -1,5 +1,6 @@
 import numpy as np
 from src.utils import softmax
+import random
 
 class Classifier:
 
@@ -43,6 +44,10 @@ class Classifier:
         error_train =[]
         error_val = []
         for i in range(n_epochs):
+            indices = np.arange(Y_train.shape[1])
+            np.random.shuffle(indices)
+            X_train = X_train[:,indices]
+            Y_train = Y_train[:,indices]
             for j in range(int(n/n_batch)):
                 j = j + 1
                 j_start = (j - 1) * n_batch + 1
@@ -54,11 +59,12 @@ class Classifier:
                 self.W = self.W - eta*j_wtr_w
                 self.b = self.b - eta*j_wrt_b
 
+            eta = 0.9*eta
             prediction_train = self.predict(X_train)
             cost_train = self.compute_cost(X_train, Y_train, prediction_train, lamda)
-            print("Epoch #" + str(i) + " Loss:"+ str(cost_train))
             prediction_val = self.predict(X_val)
             cost_val = self.compute_cost(X_val, Y_val, prediction_val, lamda)
+            print("Epoch #" + str(i) + " Loss:" + str(cost_val))
             error_train.append(cost_train)
             error_val.append(cost_val)
 

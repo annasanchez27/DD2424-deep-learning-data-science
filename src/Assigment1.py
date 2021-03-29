@@ -29,9 +29,10 @@ def main():
     print("gradient_w well calculated:",check_matrices(j_wrt_w,gradient_num[0]))
     print("gradient_b well calculated:", check_matrices(j_wrt_b, gradient_num[1]))
     """
+
     loss = classifier.mini_batch(data['train_data']['data'],data['train_data']['one_hot'],
                                         data['validation_data']['data'],data['validation_data']['one_hot'],
-                                        n_batch=100,eta=0.001,n_epochs=40,lamda=0)
+                                        n_batch=80,eta=0.01,n_epochs=50,lamda=0)
     error_plot(loss['loss_train'],loss['loss_val'])
     prediction_test = classifier.predict(data['test_data']['data'])
     montage(classifier.W)

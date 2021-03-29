@@ -14,8 +14,6 @@ def load_batch(file):
             'labels': dict[b'labels'],
             'one_hot': one_hot}
 
- #train_data = np.concatenate((file1, file2.T, file3.T,
-  #                               file4.T, file5.T), axis=1)
 def load_data(exc2=True):
     if exc2:
         train_data1 = load_batch("cifar-10-batches-py/data_batch_1")
@@ -23,7 +21,6 @@ def load_data(exc2=True):
         train_data3 = load_batch("cifar-10-batches-py/data_batch_3")
         train_data4 = load_batch("cifar-10-batches-py/data_batch_4")
         train_data5 = load_batch("cifar-10-batches-py/data_batch_5")
-        print(train_data5['data'].shape)
         data = np.concatenate((train_data1['data'], train_data2['data'], train_data3['data'],
                                  train_data4['data'],train_data5['data'][:, :9000]), axis=1)
 
