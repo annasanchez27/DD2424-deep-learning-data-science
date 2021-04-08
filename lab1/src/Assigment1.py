@@ -1,5 +1,5 @@
-from data.load_data import load_data,preprocessing
-from data.classifier import Classifier
+from lab1.data.load_data import load_data,preprocessing
+from lab1.data.classifier import Classifier
 import numpy as np
 from utils import montage,error_plot
 

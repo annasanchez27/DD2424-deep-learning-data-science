@@ -1,5 +1,5 @@
 import numpy as np
-from src.utils import softmax
+from lab1.src.utils import softmax
 import random
 
 class Classifier:
