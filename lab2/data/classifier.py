@@ -14,22 +14,24 @@ class Classifier:
         self.layers.append(layer)
 
 
-    def predict_layer(self, X,W,b,loss_function):
-        if loss_function == 'cross-entropy':
+    def predict_layer(self,X,W,b,activation_function):
+        if activation_function == 'softmax':
             return softmax(np.dot(W,X)+b)
-        if loss_function == 'svm':
-            return np.dot(W, X) + b
+        if activation_function == 'relu':
+            return np.maximum(np.zeros(shape=(np.dot(W, X) + b).shape), np.dot(W, X) + b)
+
 
     def predict(self,X,loss_function):
-        for i in range(len(self.layers)):
-            prediction = self.predict_layer(X, self.layers[i].W, self.layers[i].b, loss_function)
-            X = prediction
-        return X
+        h = self.predict_layer(X,self.layers[0].W, self.layers[0].b, 'relu')
+        prediction = self.predict_layer(h, self.layers[1].W, self.layers[1].b, 'softmax')
+        return h,prediction
+
     def compute_cost(self,X,labels_onehot,prediction,loss_function,lambda_reg=0.0):
         """Equation number (5) in the paper"""
         num_datapoints = X.shape[1]
         entr = self._loss(labels_onehot, prediction,loss_function)
-        return 1/num_datapoints*np.sum(entr)+ lambda_reg*np.sum(np.square(self.W))
+        return 1/num_datapoints*np.sum(entr)+ lambda_reg*(np.sum(np.square(self.layers[0].W) +
+                                                                 np.sum(np.square(self.layers[1].W))))
 
 
     def _loss(self,label_onehotencoded,probabilities,loss_function):
@@ -49,32 +51,24 @@ class Classifier:
         pred = np.argmax(prediction,axis=0)
         return np.sum(pred == data['labels'])/len(prediction[0])*100
 
-    def compute_gradients(self,X,labels_onehot,predictions,loss_function,lambda_reg):
+    def compute_gradients(self,X,labels_onehot,loss_function,lambda_reg):
         """Equation (10) and (11) in the assigment. Look last slides Lecture 3"""
         n = X.shape[1]
+        h,p = self.predict(X,loss_function)
         if loss_function == 'cross-entropy':
-            g_batch = -(labels_onehot-predictions)
-            j_wtr_w = 1/n*np.dot(g_batch,X.T) + 2*lambda_reg*self.W
-            j_wrt_b = 1/n*np.dot(g_batch,np.ones((n,1)))
-            return j_wtr_w,j_wrt_b
+            g_batch = -(labels_onehot-p)
 
-        if loss_function == 'svm':
-            '''
-            Loss gradient for SGD with batch size 1 only
-            link to where I took the formula from: https://cs231n.github.io/optimization-1/
-            '''
-            s_y = np.sum(labels_onehot * predictions, axis=0)
-            s = np.maximum(np.zeros(predictions.shape), predictions - s_y + 1)
-            s[labels_onehot.astype(bool)] = 0
-            vector = s
-            vector[s > 0] = 1
-            # count the number of classes that didn’t meet the desired margin
-            num_misclass = np.sum(vector, axis=0)
-            # in the right class we need to put the previous count
-            vector[np.argmax(labels_onehot, axis=0) , np.arange(n)] = -num_misclass
-            j_wtr_w = np.dot(vector, X.T) / n + lambda_reg * self.W
-            j_wrt_b = 1/n*np.dot(vector,np.ones((n,1)))
-            return j_wtr_w,j_wrt_b
+            j_wtr_w2 = 1/n*np.dot(g_batch,h.T) + 2*lambda_reg*self.layers[1].W
+            j_wrt_b2 = 1/n*np.dot(g_batch,np.ones((n,1)))
+
+            g_batch = np.dot(self.layers[1].W.T, g_batch)
+            g_batch = np.multiply(g_batch,np.heaviside(h,0))
+
+            j_wrt_b1 = 1/n*np.dot(g_batch,np.ones((n,1)))
+            j_wtr_w1 = 1/n*np.dot(g_batch,X.T) + 2*lambda_reg*self.layers[0].W
+
+            return j_wtr_w1,j_wrt_b1,j_wtr_w2,j_wrt_b2
+
 
     def fit(self,X_train,Y_train,X_val,Y_val,loss_function,n_batch,eta,n_epochs,lamda):
             n = X_train.shape[1]
@@ -92,11 +86,13 @@ class Classifier:
                     j_end = j*n_batch
                     X_batch = X_train[:, j_start:j_end]
                     Y_batch = Y_train[:,j_start:j_end]
-                    prediction = self.predict(X_batch,loss_function)
-                    print("DONE!")
-                    #j_wtr_w,j_wrt_b = self.compute_gradients(X_batch,Y_batch,prediction,loss_function,lamda)
-                    #self.W = self.W - eta*j_wtr_w
-                    #self.b = self.b - eta*j_wrt_b
+                    _,prediction = self.predict(X_batch,loss_function)
+                    j_wtr_w1,j_wtr_b1,j_wtr_w2,j_wtr_b2 = self.compute_gradients(X_batch,Y_batch,
+                                                                                 prediction,loss_function,lamda)
+                    self.layers[0].W = self.layers[0].W  - eta*j_wtr_w1
+                    self.layers[0].b = self.layers[0].b - eta * j_wtr_b1
+                    self.layers[1].W = self.layers[1].W  - eta*j_wtr_w2
+                    self.layers[1].b = self.layers[1].b - eta * j_wtr_b2
                 eta = 0.9*eta
                 prediction_train = self.predict(X_train,loss_function)
                 cost_train = self.compute_cost(X_train, Y_train, prediction_train, loss_function,lamda)
@@ -110,37 +106,59 @@ class Classifier:
                     'loss_val':error_val}
 
 
-    def ComputeCost(self, X, Y, W, b, lamda):
+    def ComputeCost(self, X, Y, W1,W2,b1, b2, lamda):
         """Equation number (5) in the paper"""
         num_datapoints = X.shape[1]
-        prediction = self.Predict(X, W, b)
+        _, prediction = self.Predict(X,W1,W2,b1,b2)
         entr = self._loss(Y, prediction,'cross-entropy')
-        return 1 / num_datapoints * np.sum(entr) + lamda * np.sum(np.square(W))
+        return None,1/num_datapoints*np.sum(entr)+ lamda*(np.sum(np.square(W1)) +
+                                                                 np.sum(np.square(W2)))
 
-    def Predict(self, X, W, b):
-        return softmax(np.dot(W, X) + b)
+    def Predict_layer(self,X,W,b,activation_function):
+        if activation_function == 'softmax':
+            return softmax(np.dot(W,X)+b)
+        if activation_function == 'relu':
+            return np.maximum(np.zeros(shape=(np.dot(W, X) + b).shape), np.dot(W, X) + b)
 
-    def ComputeGradsNum(self,X, Y, P, W, b, lamda, h):
-        """ Converted from matlab code """
-        no = W.shape[0]
-        d = X.shape[0]
 
-        grad_W = np.zeros(W.shape);
-        grad_b = np.zeros((no, 1));
+    def Predict(self,X,W1,W2,b1,b2):
+        h = self.Predict_layer(X,W1, b1, 'relu')
+        prediction = self.Predict_layer(h, W2, b2, 'softmax')
+        return h,prediction
 
-        c = self.ComputeCost(X, Y, W, b,lamda);
+    def ComputeGradsNum(self,X, Y, P, W1, W2, b1, b2, lam, h):
+        grad_W1 = np.zeros(W1.shape)
+        grad_b1 = np.zeros(b1.shape)
+        grad_W2 = np.zeros(W2.shape)
+        grad_b2 = np.zeros(b2.shape)
+        _, c = self.ComputeCost(X, Y, W1, W2, b1, b2, lam)
+        print("Starting")
+        for i in tqdm(range(len(b1))):
+            b1_try = np.array(b1)
+            b1_try[i] += h
+            _, c2 = self.ComputeCost(X, Y, W1, W2, b1_try, b2, lam)
+            grad_b1[i] = (c2 - c) / h
+        print("First  done")
+        for i in tqdm(range(W1.shape[0])):
+            for j in range(W1.shape[1]):
+                W1_try = np.array(W1)
+                W1_try[i, j] += h
+                _, c2 = self.ComputeCost(X, Y, W1_try, W2, b1, b2, lam)
+                grad_W1[i, j] = (c2 - c) / h
 
-        for i in range(len(b)):
-            b_try = np.array(b)
-            b_try[i] += h
-            c2 = self.ComputeCost(X, Y, W, b_try,lamda)
-            grad_b[i] = (c2 - c) / h
+        for i in tqdm(range(len(b2))):
+            b2_try = np.array(b2)
+            b2_try[i] += h
+            _, c2 = self.ComputeCost(X, Y, W1, W2, b1, b2_try, lam)
+            grad_b2[i] = (c2 - c) / h
 
-        for i in range(W.shape[0]):
-            for j in range(W.shape[1]):
-                W_try = np.array(W)
-                W_try[i, j] += h
-                c2 = self.ComputeCost(X, Y, W_try, b, lamda)
-                grad_W[i, j] = (c2 - c) / h
+        for i in tqdm(range(W2.shape[0])):
+            for j in range(W2.shape[1]):
+                W2_try = np.array(W2)
+                W2_try[i, j] += h
+                _, c2 = self.ComputeCost(X, Y, W1, W2_try, b1, b2, lam)
+                grad_W2[i, j] = (c2 - c) / h
 
-        return [grad_W, grad_b]
+        return [grad_W1, grad_W2, grad_b1, grad_b2]
+
+
