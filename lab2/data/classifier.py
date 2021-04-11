@@ -26,12 +26,11 @@ class Classifier:
         prediction = self.predict_layer(h, self.layers[1].W, self.layers[1].b, 'softmax')
         return h,prediction
 
-    def compute_cost(self,X,labels_onehot,prediction,loss_function,lambda_reg=0.0):
+    def compute_cost(self,X,labels_onehot,prediction,loss_function,lambda_reg):
         """Equation number (5) in the paper"""
         num_datapoints = X.shape[1]
         entr = self._loss(labels_onehot, prediction,loss_function)
-        return 1/num_datapoints*np.sum(entr)+ lambda_reg*(np.sum(np.square(self.layers[0].W) +
-                                                                 np.sum(np.square(self.layers[1].W))))
+        return 1/num_datapoints*np.sum(entr)+ lambda_reg* (np.sum(self.layers[0].W**2) + np.sum(self.layers[1].W))
 
 
     def _loss(self,label_onehotencoded,probabilities,loss_function):
@@ -46,10 +45,10 @@ class Classifier:
 
 
 
-    def compute_accuracy(self,data,prediction):
+    def compute_accuracy(self,labels,prediction):
         """Equation number (4) in the assigment"""
         pred = np.argmax(prediction,axis=0)
-        return np.sum(pred == data['labels'])/len(prediction[0])*100
+        return np.sum(pred == labels )/len(prediction[0])*100
 
     def compute_gradients(self,X,labels_onehot,loss_function,lambda_reg):
         """Equation (10) and (11) in the assigment. Look last slides Lecture 3"""
@@ -70,41 +69,58 @@ class Classifier:
             return j_wtr_w1,j_wrt_b1,j_wtr_w2,j_wrt_b2
 
 
-    def fit(self,X_train,Y_train,X_val,Y_val,loss_function,n_batch,eta,n_epochs,lamda):
+    def fit(self,X_train,Y_train,X_val,Y_val,Ylabels,loss_function,n_batch,eta,n_epochs,lamda,eta_min,eta_max,stepsize,cycles):
             n = X_train.shape[1]
             error_train =[]
             error_val = []
-            for i in range(n_epochs):
-                print(i)
-                indices = np.arange(Y_train.shape[1])
-                np.random.shuffle(indices)
-                X_train = X_train[:,indices]
-                Y_train = Y_train[:,indices]
-                for j in tqdm(range(int(n/n_batch))):
-                    j = j + 1
-                    j_start = (j - 1) * n_batch + 1
-                    j_end = j*n_batch
-                    X_batch = X_train[:, j_start:j_end]
-                    Y_batch = Y_train[:,j_start:j_end]
-                    _,prediction = self.predict(X_batch,loss_function)
-                    j_wtr_w1,j_wtr_b1,j_wtr_w2,j_wtr_b2 = self.compute_gradients(X_batch,Y_batch,
-                                                                                 prediction,loss_function,lamda)
-                    self.layers[0].W = self.layers[0].W  - eta*j_wtr_w1
-                    self.layers[0].b = self.layers[0].b - eta * j_wtr_b1
-                    self.layers[1].W = self.layers[1].W  - eta*j_wtr_w2
-                    self.layers[1].b = self.layers[1].b - eta * j_wtr_b2
-                eta = 0.9*eta
-                prediction_train = self.predict(X_train,loss_function)
-                cost_train = self.compute_cost(X_train, Y_train, prediction_train, loss_function,lamda)
-                prediction_val = self.predict(X_val, loss_function)
-                cost_val = self.compute_cost(X_val, Y_val, prediction_val, loss_function,lamda)
-                print("Epoch #" + str(i) + " Loss:" + str(cost_val))
-                error_train.append(cost_train)
-                error_val.append(cost_val)
+            t = 0
+            n_epochs = int(stepsize*cycles*2/n_batch)
+            print("EPOCHS")
+            print(n_epochs)
+            for l in range(cycles):
+                for i in tqdm(range(n_epochs)):
+                    indices = np.arange(Y_train.shape[1])
+                    np.random.shuffle(indices)
+                    X_train = X_train[:,indices]
+                    Y_train = Y_train[:,indices]
+                    for j in range(int(n/n_batch)):
+                        j = j + 1
+                        j_start = (j - 1) * n_batch + 1
+                        j_end = j*n_batch
+                        X_batch = X_train[:, j_start:j_end]
+                        Y_batch = Y_train[:,j_start:j_end]
+                        j_wtr_w1,j_wtr_b1,j_wtr_w2,j_wtr_b2 = self.compute_gradients(X_batch,Y_batch,
+                                                                                     loss_function,lamda)
+                        self.layers[0].W = self.layers[0].W  - eta*j_wtr_w1
+                        self.layers[0].b = self.layers[0].b - eta * j_wtr_b1
+                        self.layers[1].W = self.layers[1].W  - eta*j_wtr_w2
+                        self.layers[1].b = self.layers[1].b - eta * j_wtr_b2
+                        t += 1
+                        eta = self.set_eta(eta_min,eta_max,stepsize,l,t)
+                        print(t)
+
+                    _,prediction_train = self.predict(X_train,loss_function)
+                    cost_train = self.compute_cost(X_train, Y_train, prediction_train,loss_function,lamda)
+                    print("Cost train calculated!")
+                    _,prediction_val = self.predict(X_val, loss_function)
+                    cost_val = self.compute_cost(X_val, Y_val,prediction_val, loss_function,lamda)
+                    print("Cost validation calculated!")
+                    error_train.append(cost_train)
+                    error_val.append(cost_val)
+                    print("Step_moment #" + str(t) + " Training error:" + str(cost_train))
+                    print("Step_moment #" + str(t) + " Training error:" + str(cost_val))
+                    accuracy = self.compute_accuracy(Ylabels,prediction_train)
+                    print("Train accuracy", accuracy)
+
 
             return {'loss_train':error_train,
                     'loss_val':error_val}
 
+    def set_eta(self,eta_min,eta_max,ns,l,t):
+        if 2*l*ns<t<(2*l+1)*ns:
+            return eta_min + (t-2*l*ns)/ns*(eta_max-eta_min)
+        if (2*l+1)*ns <= t <= 2*(l+1)*ns:
+            return eta_max - (t-2*l*ns)/ns*(eta_max-eta_min)
 
     def ComputeCost(self, X, Y, W1,W2,b1, b2, lamda):
         """Equation number (5) in the paper"""
@@ -132,13 +148,11 @@ class Classifier:
         grad_W2 = np.zeros(W2.shape)
         grad_b2 = np.zeros(b2.shape)
         _, c = self.ComputeCost(X, Y, W1, W2, b1, b2, lam)
-        print("Starting")
         for i in tqdm(range(len(b1))):
             b1_try = np.array(b1)
             b1_try[i] += h
             _, c2 = self.ComputeCost(X, Y, W1, W2, b1_try, b2, lam)
             grad_b1[i] = (c2 - c) / h
-        print("First  done")
         for i in tqdm(range(W1.shape[0])):
             for j in range(W1.shape[1]):
                 W1_try = np.array(W1)

@@ -8,7 +8,7 @@ from utils import montage,error_plot
 
 def check_matrices(a_anal,a_num):
     matrix = np.abs(a_anal - a_num)
-    return np.isin(matrix <= 1e-5, True).all()
+    return np.isin(matrix <= 1e-6, True).all()
 
 def gradient_exercise(data):
     d = len(data['train_data']['data'][:, :10])
@@ -40,30 +40,41 @@ def gradient_exercise(data):
     print("gradient_b2 well calculated:", check_matrices(j_wrt_b2, gradient_num[3]))
 
 
+def check_convergence(data):
+    d = len(data['train_data']['data'])
+    m = len(data['train_data']['data'][0])
+    k = len(data['train_data']['one_hot'])
+
+    classifier = Classifier()
+    classifier.add_layer(n=m, input_nodes=d)
+    classifier.add_layer(n=k, input_nodes=m)
+    classifier.fit(data['train_data']['data'][:, :100],data['train_data']['one_hot'][:, :100],
+                   data['train_data']['data'][:, :20],data['train_data']['one_hot'][:, :20],
+                   data['train_data']['labels'],
+                   'cross-entropy',
+                   n_batch=100,eta=1e-5,n_epochs=200,lamda=0.01,eta_min=1e-5, eta_max=1e-1 ,stepsize=500,cycles=1)
+
+
+def lerning_rate_exercise(data):
+    d = len(data['train_data']['data'])
+    m = len(data['train_data']['data'][0])
+    k = len(data['train_data']['one_hot'])
+    classifier = Classifier()
+    classifier.add_layer(n=m, input_nodes=d)
+    classifier.add_layer(n=k, input_nodes=m)
+    classifier.fit(data['train_data']['data'],data['train_data']['one_hot'],
+                   data['validation_data']['data'],data['validation_data']['one_hot'],data['train_data']['labels'],
+                   'cross-entropy',
+                   n_batch=100,eta=1e-5,n_epochs=10,lamda=0.01,eta_min=1e-5, eta_max=1e-1 ,stepsize=500,cycles=1)
 
 
 def main():
     data = load_data()
     data = preprocessing(data)
     print("Preprocess data done!")
-
-
-    d = len(data['train_data']['data'])
-    m = len(data['train_data']['data'][0])
-
-    k = len(data['train_data']['one_hot'])
-    classifier = Classifier()
-    classifier.add_layer(n=m, input_nodes=d)
-    classifier.add_layer(n=k,input_nodes=m)
-    gradient_exercise(data)
-
-    """    loss = classifier.fit(data['train_data']['data'], data['train_data']['one_hot'],
-                          data['validation_data']['data'], data['validation_data']['one_hot'],
-                          loss_function='cross-entropy',
-                          n_batch=1000, eta=0.01, n_epochs=10, lamda=0)"""
-    #classifier.add_layer(n=, input_nodes=)
-
-
+    #gradient_exercise(data)
+    #check_convergence(data)
+    lerning_rate_exercise(data)
 
 
 if __name__ == "__main__":
