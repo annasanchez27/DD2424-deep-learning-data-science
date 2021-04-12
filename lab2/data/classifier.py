@@ -69,58 +69,99 @@ class Classifier:
             return j_wtr_w1,j_wrt_b1,j_wtr_w2,j_wrt_b2
 
 
-    def fit(self,X_train,Y_train,X_val,Y_val,Ylabels,loss_function,n_batch,eta,n_epochs,lamda,eta_min,eta_max,stepsize,cycles):
+    def fit(self,X_train,Y_train,X_val,Y_val,Ylabelstrain,Ylabelsval,loss_function,n_batch,eta,
+            n_epochs,lamda,eta_min,eta_max,n_s):
+
+            cost_train_total =[]
+            cost_val_total = []
+            loss_train_total = []
+            loss_val_total = []
+            acc_train_total = []
+            acc_val_total = []
+
             n = X_train.shape[1]
-            error_train =[]
-            error_val = []
             t = 0
-            n_epochs = int(stepsize*cycles*2/n_batch)
-            print("EPOCHS")
-            print(n_epochs)
-            for l in range(cycles):
-                for i in tqdm(range(n_epochs)):
-                    indices = np.arange(Y_train.shape[1])
-                    np.random.shuffle(indices)
-                    X_train = X_train[:,indices]
-                    Y_train = Y_train[:,indices]
-                    for j in range(int(n/n_batch)):
-                        j = j + 1
-                        j_start = (j - 1) * n_batch + 1
-                        j_end = j*n_batch
-                        X_batch = X_train[:, j_start:j_end]
-                        Y_batch = Y_train[:,j_start:j_end]
-                        j_wtr_w1,j_wtr_b1,j_wtr_w2,j_wtr_b2 = self.compute_gradients(X_batch,Y_batch,
-                                                                                     loss_function,lamda)
-                        self.layers[0].W = self.layers[0].W  - eta*j_wtr_w1
-                        self.layers[0].b = self.layers[0].b - eta * j_wtr_b1
-                        self.layers[1].W = self.layers[1].W  - eta*j_wtr_w2
-                        self.layers[1].b = self.layers[1].b - eta * j_wtr_b2
-                        t += 1
-                        eta = self.set_eta(eta_min,eta_max,stepsize,l,t)
-                        print(t)
 
-                    _,prediction_train = self.predict(X_train,loss_function)
-                    cost_train = self.compute_cost(X_train, Y_train, prediction_train,loss_function,lamda)
-                    print("Cost train calculated!")
-                    _,prediction_val = self.predict(X_val, loss_function)
-                    cost_val = self.compute_cost(X_val, Y_val,prediction_val, loss_function,lamda)
-                    print("Cost validation calculated!")
-                    error_train.append(cost_train)
-                    error_val.append(cost_val)
-                    print("Step_moment #" + str(t) + " Training error:" + str(cost_train))
-                    print("Step_moment #" + str(t) + " Training error:" + str(cost_val))
-                    accuracy = self.compute_accuracy(Ylabels,prediction_train)
-                    print("Train accuracy", accuracy)
+            for i in tqdm(range(n_epochs)):
+                for j in range(int(n/n_batch)):
+                    #Select the batch
+                    j = j + 1
+                    j_start = (j - 1) * n_batch + 1
+                    j_end = j*n_batch
+                    X_batch = X_train[:, j_start:j_end]
+                    Y_batch = Y_train[:,j_start:j_end]
+
+                    #Update weights
+                    self.update_weights(X_batch,Y_batch,eta,lamda,loss_function)
+                    t = (t+1) % (2*n_s)
+                    eta = self.set_eta(eta_min,eta_max,n_s,t)
+                    print(t)
 
 
-            return {'loss_train':error_train,
-                    'loss_val':error_val}
+                #Predict X_train and X_val
+                _,prediction_train = self.predict(X_train,loss_function)
+                _, prediction_val = self.predict(X_val, loss_function)
 
-    def set_eta(self,eta_min,eta_max,ns,l,t):
-        if 2*l*ns<t<(2*l+1)*ns:
-            return eta_min + (t-2*l*ns)/ns*(eta_max-eta_min)
-        if (2*l+1)*ns <= t <= 2*(l+1)*ns:
-            return eta_max - (t-2*l*ns)/ns*(eta_max-eta_min)
+                #Compute cost
+                cost_train = self.compute_cost(X_train, Y_train, prediction_train,loss_function,lamda)
+                cost_val = self.compute_cost(X_val, Y_val,prediction_val, loss_function,lamda)
+                cost_train_total.append(cost_train)
+                cost_val_total.append(cost_val)
+                print("Step_moment #" + str(t) + " Training error:" + str(cost_train))
+                print("Step_moment #" + str(t) + " Validation error:" + str(cost_val))
+
+                #Compute accuracy
+                train_accuracy = self.compute_accuracy(Ylabelstrain,prediction_train)
+                accuracy_val = self.compute_accuracy(Ylabelsval, prediction_val)
+                acc_train_total.append(train_accuracy)
+                acc_val_total.append(accuracy_val)
+                print("Train accuracy", train_accuracy)
+                print("Validation accuracy", accuracy_val)
+
+                #Compute loss
+                num_datapoints = X_train.shape[1]
+                entr = self._loss(Y_train, prediction_train, loss_function)
+                loss_train = 1 / num_datapoints * np.sum(entr)
+                loss_train_total.append(loss_train)
+
+                num_datapoints = X_val.shape[1]
+                entr = self._loss(Y_val, prediction_val, loss_function)
+                loss_val = 1 / num_datapoints * np.sum(entr)
+                loss_val_total.append(loss_val)
+                print("Step_moment #" + str(t) + " Training loss:" + str(loss_train))
+                print("Step_moment #" + str(t) + " Validation loss:" + str(loss_val))
+
+            return {'cost_train':cost_train_total,
+                    'cost_val':cost_val_total,
+                    'accuracy_train':acc_train_total,
+                    'accuracy_val':acc_val_total,
+                    'loss_train': loss_train_total,
+                    'loss_val': loss_val_total}
+
+
+
+
+
+
+
+    def update_weights(self,X_batch, Y_batch,eta,lamda, loss_function):
+        # Compute the gradients
+        j_wtr_w1, j_wtr_b1, j_wtr_w2, j_wtr_b2 = self.compute_gradients(X_batch, Y_batch,
+                                                                        loss_function, lamda)
+
+        # Update the weights
+        self.layers[0].W = self.layers[0].W - eta * j_wtr_w1
+        self.layers[0].b = self.layers[0].b - eta * j_wtr_b1
+        self.layers[1].W = self.layers[1].W - eta * j_wtr_w2
+        self.layers[1].b = self.layers[1].b - eta * j_wtr_b2
+
+
+    def set_eta(self,eta_min,eta_max,ns,t):
+        if 0<=t<ns:
+            return eta_min + (t)/ns*(eta_max-eta_min)
+        if ns <= t <= 2*ns:
+            return eta_max - (t-ns)/ns*(eta_max-eta_min)
+
 
     def ComputeCost(self, X, Y, W1,W2,b1, b2, lamda):
         """Equation number (5) in the paper"""

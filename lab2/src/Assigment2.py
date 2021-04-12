@@ -1,7 +1,7 @@
 from lab2.data.load_data import load_data,preprocessing
 from lab2.data.classifier import Classifier
 import numpy as np
-from utils import montage,error_plot
+from utils import montage,error_plot,error_plot3
 
 
 
@@ -57,16 +57,43 @@ def check_convergence(data):
 
 def lerning_rate_exercise(data):
     d = len(data['train_data']['data'])
-    m = len(data['train_data']['data'][0])
+    m = 10
     k = len(data['train_data']['one_hot'])
     classifier = Classifier()
     classifier.add_layer(n=m, input_nodes=d)
     classifier.add_layer(n=k, input_nodes=m)
-    classifier.fit(data['train_data']['data'],data['train_data']['one_hot'],
-                   data['validation_data']['data'],data['validation_data']['one_hot'],data['train_data']['labels'],
+    metrics = classifier.fit(data['train_data']['data'],data['train_data']['one_hot'],
+                   data['validation_data']['data'],data['validation_data']['one_hot'],
+                   data['train_data']['labels'],
+                   data['validation_data']['labels'],
                    'cross-entropy',
-                   n_batch=100,eta=1e-5,n_epochs=10,lamda=0.01,eta_min=1e-5, eta_max=1e-1 ,stepsize=500,cycles=1)
+                   n_batch=100,eta=1e-5,n_epochs=10,lamda=0.01,eta_min=1e-5, eta_max=1e-1 ,n_s=500)
+    error_plot(metrics['cost_train'],metrics['cost_val'],"Cost")
+    error_plot(metrics['accuracy_train'], metrics['accuracy_val'], "Accuracy")
+    error_plot(metrics['loss_train'], metrics['loss_val'], "Loss")
+    _,prediction_test = classifier.predict(data['test_data']['data'], 'cross-entropy')
+    test_accuracy = classifier.compute_accuracy(data['test_data']['labels'],prediction_test)
+    print("Test accuracy:" ,test_accuracy)
 
+def learning_rate_3cycles(data):
+    d = len(data['train_data']['data'])
+    m = 10
+    k = len(data['train_data']['one_hot'])
+    classifier = Classifier()
+    classifier.add_layer(n=m, input_nodes=d)
+    classifier.add_layer(n=k, input_nodes=m)
+    metrics = classifier.fit(data['train_data']['data'],data['train_data']['one_hot'],
+                   data['validation_data']['data'],data['validation_data']['one_hot'],
+                   data['train_data']['labels'],
+                   data['validation_data']['labels'],
+                   'cross-entropy',
+                   n_batch=100,eta=1e-5,n_epochs=50,lamda=0.01,eta_min=1e-5, eta_max=1e-1 ,n_s=800)
+    error_plot3(metrics['cost_train'],metrics['cost_val'],"Cost")
+    error_plot3(metrics['accuracy_train'], metrics['accuracy_val'], "Accuracy")
+    error_plot3(metrics['loss_train'], metrics['loss_val'], "Loss")
+    _,prediction_test = classifier.predict(data['test_data']['data'], 'cross-entropy')
+    test_accuracy = classifier.compute_accuracy(data['test_data']['labels'],prediction_test)
+    print("Test accuracy:" ,test_accuracy)
 
 def main():
     data = load_data()
@@ -74,8 +101,8 @@ def main():
     print("Preprocess data done!")
     #gradient_exercise(data)
     #check_convergence(data)
-    lerning_rate_exercise(data)
-
+    #lerning_rate_exercise(data)
+    learning_rate_3cycles(data)
 
 if __name__ == "__main__":
     main()

@@ -72,10 +72,10 @@ class Classifier:
             error_train =[]
             error_val = []
             for i in range(n_epochs):
-                indices = np.arange(Y_train.shape[1])
-                np.random.shuffle(indices)
-                X_train = X_train[:,indices]
-                Y_train = Y_train[:,indices]
+                #indices = np.arange(Y_train.shape[1])
+                #np.random.shuffle(indices)
+                #X_train = X_train[:,indices]
+                #Y_train = Y_train[:,indices]
                 for j in range(int(n/n_batch)):
                     j = j + 1
                     j_start = (j - 1) * n_batch + 1
@@ -86,7 +86,7 @@ class Classifier:
                     j_wtr_w,j_wrt_b = self.compute_gradients(X_batch,Y_batch,prediction,loss_function,lamda)
                     self.W = self.W - eta*j_wtr_w
                     self.b = self.b - eta*j_wrt_b
-                eta = 0.9*eta
+                #eta = 0.9*eta
                 prediction_train = self.predict(X_train,loss_function)
                 cost_train = self.compute_cost(X_train, Y_train, prediction_train, loss_function,lamda)
                 prediction_val = self.predict(X_val,loss_function)
