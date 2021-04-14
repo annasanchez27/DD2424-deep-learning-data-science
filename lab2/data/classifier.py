@@ -81,7 +81,7 @@ class Classifier:
 
             n = X_train.shape[1]
             t = 0
-
+            #490 is one epoch
             for i in tqdm(range(n_epochs)):
                 for j in range(int(n/n_batch)):
                     #Select the batch
@@ -95,7 +95,6 @@ class Classifier:
                     self.update_weights(X_batch,Y_batch,eta,lamda,loss_function)
                     t = (t+1) % (2*n_s)
                     eta = self.set_eta(eta_min,eta_max,n_s,t)
-                    print(t)
 
 
                 #Predict X_train and X_val
@@ -115,8 +114,8 @@ class Classifier:
                 accuracy_val = self.compute_accuracy(Ylabelsval, prediction_val)
                 acc_train_total.append(train_accuracy)
                 acc_val_total.append(accuracy_val)
-                print("Train accuracy", train_accuracy)
-                print("Validation accuracy", accuracy_val)
+                #print("Train accuracy", train_accuracy)
+                #print("Validation accuracy", accuracy_val)
 
                 #Compute loss
                 num_datapoints = X_train.shape[1]
@@ -160,6 +159,8 @@ class Classifier:
         if 0<=t<ns:
             return eta_min + (t)/ns*(eta_max-eta_min)
         if ns <= t <= 2*ns:
+            if (t==ns):
+                print("MAXIMUM REACHED!")
             return eta_max - (t-ns)/ns*(eta_max-eta_min)
 
 

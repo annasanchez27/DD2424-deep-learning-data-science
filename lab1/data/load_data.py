@@ -31,9 +31,9 @@ def load_data(exc2=True):
                                  train_data4['one_hot'],train_data5['one_hot'][:, :9000]), axis=1)
         train_data = {'data': data, 'labels': labels, 'one_hot': one_hot}
 
-        validation_data = {'data': train_data5['data'][:9000:],
+        validation_data = {'data': train_data5['data'][:,9000:],
                            'labels':train_data5['labels'][9000:],
-                           'one_hot': train_data5['one_hot'][:9000:]}
+                           'one_hot': train_data5['one_hot'][:,9000:]}
         test_data = load_batch("../cifar-10-batches-py/test_batch")
     else:
         train_data = load_batch("../cifar-10-batches-py/data_batch_1")
