@@ -57,8 +57,23 @@ def error_plot_normal(train_error,validation_error,ylabel):
     plt.show()
 
 def write_tofile(lamda,accuracy):
-    dictionary = {'lambda': lamda, 'accuracy': accuracy}
-    file = open("results_narrow.txt", "a")
+    dictionary = {'hidden_nodes': lamda, 'accuracy': accuracy}
+    file = open("results_dropout.txt", "a")
     str_dictionary = repr(dictionary)
     file.write(str_dictionary + "\n")
     file.close()
+
+def plot_accuracies_numbernodes():
+    regularization = [0.0005,0.001,0.0001]
+    nodes = [10,50,200,400,800,2000]
+    accuracies_1 = [43.8,52.4,55.1,55.2,56,55.7]
+    accuracies_2 = [44.3,51.3,54.3,54.4,55.9,56.1]
+    accuracies_3 = [43.9,52.8,56.3,55.3,55.7,55.4]
+    accuracy = [accuracies_1,accuracies_2,accuracies_3]
+
+    for reg,acc in zip(regularization,accuracy):
+        plt.plot(nodes,acc,label="Regularization:" +str(reg))
+    plt.xlabel("Number of hidden nodes")
+    plt.ylabel("Accuracy")
+    plt.legend()
+    plt.show()

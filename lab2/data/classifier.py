@@ -26,6 +26,15 @@ class Classifier:
         prediction = self.predict_layer(h, self.layers[1].W, self.layers[1].b, 'softmax')
         return h,prediction
 
+    def predict_dropout(self,X,loss_function,p=0.7):
+        h = self.predict_layer(X, self.layers[0].W, self.layers[0].b, 'relu')
+        u1 = np.random.binomial(1, p, size=h.shape) / p
+        h *= u1
+        prediction = self.predict_layer(h, self.layers[1].W, self.layers[1].b, 'softmax')
+        u2 = np.random.binomial(1, p, size=prediction.shape) / p
+        prediction *= u2
+        return h, prediction
+
     def compute_cost(self,X,labels_onehot,prediction,loss_function,lambda_reg):
         """Equation number (5) in the paper"""
         num_datapoints = X.shape[1]
@@ -50,10 +59,16 @@ class Classifier:
         pred = np.argmax(prediction,axis=0)
         return np.sum(pred == labels )/len(prediction[0])*100
 
-    def compute_gradients(self,X,labels_onehot,loss_function,lambda_reg):
+    def compute_gradients(self,X,labels_onehot,loss_function,lambda_reg,dropout,jitter):
         """Equation (10) and (11) in the assigment. Look last slides Lecture 3"""
         n = X.shape[1]
-        h,p = self.predict(X,loss_function)
+        if jitter:
+            noise = np.random.normal(0, 0.1, size=X.shape)
+            X = X + noise
+        if dropout:
+            h,p = self.predict_dropout(X,loss_function)
+        else:
+            h,p = self.predict(X,loss_function)
         if loss_function == 'cross-entropy':
             g_batch = -(labels_onehot-p)
 
@@ -70,7 +85,7 @@ class Classifier:
 
 
     def fit(self,X_train,Y_train,X_val,Y_val,Ylabelstrain,Ylabelsval,loss_function,n_batch,eta,
-            n_epochs,lamda,eta_min,eta_max,n_s):
+            n_epochs,lamda,eta_min,eta_max,n_s,dropout=False,jitter=False):
 
             cost_train_total =[]
             cost_val_total = []
@@ -78,12 +93,14 @@ class Classifier:
             loss_val_total = []
             acc_train_total = []
             acc_val_total = []
+            etas = []
 
             n = X_train.shape[1]
             t = 0
             #490 is one epoch
             for i in tqdm(range(n_epochs)):
                 for j in range(int(n/n_batch)):
+                    print(j)
                     #Select the batch
                     j = j + 1
                     j_start = (j - 1) * n_batch + 1
@@ -92,16 +109,19 @@ class Classifier:
                     Y_batch = Y_train[:,j_start:j_end]
 
                     #Update weights
-                    self.update_weights(X_batch,Y_batch,eta,lamda,loss_function)
+                    self.update_weights(X_batch,Y_batch,eta,lamda,loss_function,dropout,jitter)
                     t = (t+1) % (2*n_s)
-                    eta = self.set_eta(eta_min,eta_max,n_s,t)
 
+                    eta = self.set_eta_test(eta_min,eta_max,n_s,t)
 
                 #Predict X_train and X_val
                 _,prediction_train = self.predict(X_train,loss_function)
                 _, prediction_val = self.predict(X_val, loss_function)
 
                 #Compute cost
+                print("ETA MAX", eta_max)
+                print(eta)
+                etas.append(eta)
                 cost_train = self.compute_cost(X_train, Y_train, prediction_train,loss_function,lamda)
                 cost_val = self.compute_cost(X_val, Y_val,prediction_val, loss_function,lamda)
                 cost_train_total.append(cost_train)
@@ -135,7 +155,8 @@ class Classifier:
                     'accuracy_train':acc_train_total,
                     'accuracy_val':acc_val_total,
                     'loss_train': loss_train_total,
-                    'loss_val': loss_val_total}
+                    'loss_val': loss_val_total,
+                    'eta': etas}
 
 
 
@@ -143,10 +164,10 @@ class Classifier:
 
 
 
-    def update_weights(self,X_batch, Y_batch,eta,lamda, loss_function):
+    def update_weights(self,X_batch, Y_batch,eta,lamda, loss_function,dropout,jitter):
         # Compute the gradients
         j_wtr_w1, j_wtr_b1, j_wtr_w2, j_wtr_b2 = self.compute_gradients(X_batch, Y_batch,
-                                                                        loss_function, lamda)
+                                                                        loss_function, lamda,dropout,jitter)
 
         # Update the weights
         self.layers[0].W = self.layers[0].W - eta * j_wtr_w1
@@ -163,6 +184,8 @@ class Classifier:
                 print("MAXIMUM REACHED!")
             return eta_max - (t-ns)/ns*(eta_max-eta_min)
 
+    def set_eta_test(self,eta_min,eta_max,ns,t):
+        return eta_min + t*(eta_max-eta_min)/(2*ns)
 
     def ComputeCost(self, X, Y, W1,W2,b1, b2, lamda):
         """Equation number (5) in the paper"""

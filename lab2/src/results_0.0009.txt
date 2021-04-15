@@ -1,0 +1,37 @@
+#0.0009
+{'hidden_nodes': 10, 'accuracy': 44.1}
+{'hidden_nodes': 50, 'accuracy': 52.5}
+{'hidden_nodes': 200, 'accuracy': 55.50000000000001}
+{'hidden_nodes': 800, 'accuracy': 55.60000000000001}
+{'hidden_nodes': 2000, 'accuracy': 55.7}
+
+#0.001
+{'hidden_nodes': 10, 'accuracy': 43.8}
+{'hidden_nodes': 50, 'accuracy': 52.400000000000006}
+{'hidden_nodes': 200, 'accuracy': 55.1}
+{'hidden_nodes': 400, 'accuracy': 55.2}
+{'hidden_nodes': 800, 'accuracy': 56.00000000000001}
+{'hidden_nodes': 2000, 'accuracy': 55.7}
+
+#0.00001{'hidden_nodes':
+10, 'accuracy': 43.9}
+{'hidden_nodes': 50, 'accuracy': 52.800000000000004}
+{'hidden_nodes': 200, 'accuracy': 56.3}
+{'hidden_nodes': 400, 'accuracy': 55.300000000000004}
+{'hidden_nodes': 800, 'accuracy': 55.7}
+{'hidden_nodes': 2000, 'accuracy': 55.400000000000006}
+#0.01
+{'hidden_nodes': 10, 'accuracy': 42.199999999999996}
+{'hidden_nodes': 50, 'accuracy': 49.6}
+{'hidden_nodes': 200, 'accuracy': 52.2}
+{'hidden_nodes': 400, 'accuracy': 53.0}
+{'hidden_nodes': 800, 'accuracy': 53.0}
+{'hidden_nodes': 2000, 'accuracy': 52.5}
+
+#0.005
+{'hidden_nodes': 10, 'accuracy': 44.3}
+{'hidden_nodes': 50, 'accuracy': 51.300000000000004}
+{'hidden_nodes': 200, 'accuracy': 54.300000000000004}
+{'hidden_nodes': 400, 'accuracy': 54.400000000000006}
+{'hidden_nodes': 800, 'accuracy': 55.900000000000006}
+{'hidden_nodes': 2000, 'accuracy': 56.10000000000001}
