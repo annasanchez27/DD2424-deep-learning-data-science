@@ -23,13 +23,12 @@ def montage(W):
             ax[i][j].axis('off')
     plt.show()
 
-def error_plot(train_error,validation_error,ylabel,ylim):
-    plt.plot([100*(i+1) for i in range(10)], train_error,label="training")
-    plt.plot([100*(i+1) for i in range(10)],validation_error,label="validation")
+def error_plot(train_error,validation_error,ylabel,epochs):
+    plt.plot(list(range(epochs)), train_error,label="training")
+    plt.plot(list(range(epochs)),validation_error,label="validation")
     plt.legend()
-    plt.xlabel("update step")
+    plt.xlabel("epochs")
     plt.ylabel(ylabel)
-    plt.ylim(0,ylim)
     plt.show()
 
 def error_plot3(train_error,validation_error,ylabel):

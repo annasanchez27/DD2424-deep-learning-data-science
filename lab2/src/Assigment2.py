@@ -140,9 +140,9 @@ def learning_rate(data):
     k = len(data['train_data']['one_hot'])
     n = len(data['train_data']['data'][0])
     m = 750
-    n_batch = 50
-    cycles = 1
-    n_s = 5000
+    n_batch = 90
+    cycles = 3
+    n_s = 1000
     n = len(data['train_data']['data'][0])
     epochs = int(cycles * n_s * 2 / (n / n_batch))
     print(epochs)
@@ -155,14 +155,16 @@ def learning_rate(data):
                              data['validation_data']['labels'],
                              'cross-entropy',
                              n_batch=n_batch, eta=0, n_epochs=epochs, lamda=0.0001, eta_min=0,
-                             eta_max=0.05,
+                             eta_max=0.02,
                              n_s=n_s, dropout=False,jitter=False)
 
+    _, prediction_test = classifier.predict(data['test_data']['data'], 'cross-entropy')
+    test_accuracy = classifier.compute_accuracy(data['test_data']['labels'], prediction_test)
+    print("Test accuracy:", test_accuracy)
 
-    plt.plot(metrics['eta'],metrics['accuracy_val'])
-    plt.xlabel("Learning rate")
-    plt.ylabel("Accuracy")
-    plt.show()
+    error_plot(metrics['cost_train'], metrics['cost_val'], "Cost", epochs)
+    error_plot(metrics['accuracy_train'], metrics['accuracy_val'], "Accuracy", epochs)
+    error_plot(metrics['loss_train'], metrics['loss_val'], "Loss", epochs)
 
 def main():
     data = load_no_validation()

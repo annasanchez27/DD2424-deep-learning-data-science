@@ -100,7 +100,6 @@ class Classifier:
             #490 is one epoch
             for i in tqdm(range(n_epochs)):
                 for j in range(int(n/n_batch)):
-                    print(j)
                     #Select the batch
                     j = j + 1
                     j_start = (j - 1) * n_batch + 1
@@ -112,7 +111,7 @@ class Classifier:
                     self.update_weights(X_batch,Y_batch,eta,lamda,loss_function,dropout,jitter)
                     t = (t+1) % (2*n_s)
 
-                    eta = self.set_eta_test(eta_min,eta_max,n_s,t)
+                    eta = self.set_eta(eta_min,eta_max,n_s,t)
 
                 #Predict X_train and X_val
                 _,prediction_train = self.predict(X_train,loss_function)
@@ -121,7 +120,8 @@ class Classifier:
                 #Compute cost
                 print("ETA MAX", eta_max)
                 print(eta)
-                etas.append(eta)
+                #etas.append(eta)
+                etas.append(j)
                 cost_train = self.compute_cost(X_train, Y_train, prediction_train,loss_function,lamda)
                 cost_val = self.compute_cost(X_val, Y_val,prediction_val, loss_function,lamda)
                 cost_train_total.append(cost_train)
