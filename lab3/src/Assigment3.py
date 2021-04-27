@@ -1,5 +1,5 @@
-from lab2.data.load_data import load_data,preprocessing,load_all_data,load_no_validation
-from lab2.data.classifier import Classifier
+from data.load_data import load_data,preprocessing,load_all_data,load_no_validation
+from data.classifier import Classifier
 import numpy as np
 from utils import montage,error_plot,error_plot3,write_tofile,error_plot_normal
 import math
