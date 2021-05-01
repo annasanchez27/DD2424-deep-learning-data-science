@@ -12,7 +12,28 @@ class Classifier:
         layer = Layer(n, input_nodes)
         self.layers.append(layer)
 
-    def predict(self, X, complete=False):
+    def predict(self, X, complete=False,batch_normalization=False):
+        predictions = [X]
+        for i in range(len(self.layers) - 1):
+            if batch_normalization:
+                s = self.layers[i].predict_layer(X, 'batch')
+                self.layers[i].compute_mean_variance(s)
+                s_tild = self.batch_normalization(s,self.layers[i].mean,self.layers[i].variance)
+                self.layers[i].Shat_batch = s_tild
+                s_f = np.multiply(self.layers[i].gamma,s_tild) + self.layers[i].beta
+                X = np.maximum(np.zeros(shape=(s_f.shape)),s_f)
+            else:
+                X = self.layers[i].predict_layer(X, 'relu')
+            predictions.append(X)
+        prediction = self.layers[-1].predict_layer(X, 'softmax')
+        self.layers[-1].Prediction = prediction
+        predictions.append(prediction)
+        if complete:
+            return predictions
+        else:
+            return prediction
+
+    """def predict(self, X, complete=False):
         predictions = [X]
         for i in range(len(self.layers) - 1):
             X = self.layers[i].predict_layer(X, 'relu')
@@ -22,7 +43,14 @@ class Classifier:
         if complete:
             return predictions
         else:
-            return prediction
+            return prediction"""
+
+    def batch_normalization(self,s,mu,v):
+        #first = np.sqrt(np.diag(v+np.finfo(float).eps))
+        #second = s-mu
+        #return np.dot(first, second)
+        return np.linalg.inv(np.diag(np.sqrt(v + np.finfo(float).eps))) @ (s - mu)
+
 
     def compute_cost(self, X, labels_onehot, prediction, loss_function, lambda_reg):
         """Equation number (5) in the paper"""
@@ -46,28 +74,57 @@ class Classifier:
         pred = np.argmax(prediction, axis=0)
         return np.sum(pred == labels) / len(prediction[0]) * 100
 
-    def compute_gradients(self, X, labels_onehot, lambda_reg, eta):
+    def compute_gradients(self, X, labels_onehot, lambda_reg, eta, batch_norm=False):
         """Equation (10) and (11) in the assigment. Look last slides Lecture 3"""
-        n = X.shape[1]
-        predictions_layers = self.predict(X, complete=True)
-        g_batch = -(labels_onehot - predictions_layers[-1])
-        weights = []
-        bias = []
-        for l in range(len(self.layers) - 1, 0, -1):
-            g_batch, j_wtr_w2, j_wrt_b2 = self.layers[l].backward_layer(predictions_layers[l], g_batch, eta, lambda_reg)
-            weights.append(j_wtr_w2)
+        if batch_norm == False:
+            n = X.shape[1]
+            predictions_layers = self.predict(X, complete=True)
+            g_batch = -(labels_onehot - predictions_layers[-1])
+            weights = []
+            bias = []
+            for l in range(len(self.layers) - 1, 0, -1):
+                g_batch, j_wtr_w2, j_wrt_b2 = self.layers[l].backward_layer(predictions_layers[l], g_batch, eta, lambda_reg)
+                weights.append(j_wtr_w2)
+                bias.append(j_wrt_b2)
+
+            #first layer
+            j_wrt_b1 = 1 / n * np.dot(g_batch, np.ones((n, 1)))
+            j_wrt_w1 = 1 / n * np.dot(g_batch, X.T) + 2 * lambda_reg * self.layers[0].W
+            self.layers[0].update_weights(j_wrt_w1,j_wrt_b1,eta)
+
+            weights.append(j_wrt_w1)
+            bias.append(j_wrt_b1)
+            weights.reverse()
+            bias.reverse()
+            return weights, bias
+        else:
+            n = X.shape[1]
+            predictions_layers = self.predict(X, complete=True,batch_normalization=True)
+            g_batch = -(labels_onehot - predictions_layers[-1])
+            weights = []
+            bias = []
+            gammas = []
+            betas = []
+            # last layer
+            g_batch, j_wrt_w2, j_wrt_b2  = self.layers[-1].backward_layer(self.layers[-1].X,g_batch,eta,lambda_reg)
+            weights.append(j_wrt_w2)
             bias.append(j_wrt_b2)
+            print("LAST layer",j_wrt_w2.shape)
+            # other layers
+            for l in range(len(self.layers) - 2, -1, -1):
+                g_batch,j_wrt_w,j_wrt_b,j_wrt_gamma,j_wrt_beta =self.layers[l].backward_layer(self.layers[l].X,
+                                                                                            g_batch, eta,
+                                                                             lambda_reg,batch_norm=True)
+                weights.append(j_wrt_w)
+                bias.append(j_wrt_b)
+                gammas.append(j_wrt_gamma)
+                betas.append(j_wrt_beta)
+            weights.reverse()
+            bias.reverse()
+            gammas.reverse()
+            betas.reverse()
 
-        #first layer
-        j_wrt_b1 = 1 / n * np.dot(g_batch, np.ones((n, 1)))
-        j_wrt_w1 = 1 / n * np.dot(g_batch, X.T) + 2 * lambda_reg * self.layers[0].W
-        self.layers[0].update_weights(j_wrt_w1,j_wrt_b1,eta)
-
-        weights.append(j_wrt_w1)
-        bias.append(j_wrt_b1)
-        weights.reverse()
-        bias.reverse()
-        return weights, bias
+            return weights,bias,gammas,betas
 
     def fit(self, X_train, Y_train, X_val, Y_val, Ylabelstrain, Ylabelsval, loss_function, n_batch, eta,
             n_epochs, lamda, eta_min, eta_max, n_s):
@@ -138,11 +195,18 @@ class Classifier:
         if ns <= t <= 2 * ns:
             return eta_max - (t - ns) / ns * (eta_max - eta_min)
 
-    def compute_cost_numerically(self, X, Y, lamda):
-        num_datapoints = X.shape[1]
-        predictions = self.predict(X, complete=True)
-        entr = self._loss(Y, predictions[-1], 'cross-entropy')
-        return None, 1 / num_datapoints * np.sum(entr)
+    def compute_cost_numerically(self, X, Y, lamda,batch=False):
+        if batch == False:
+            num_datapoints = X.shape[1]
+            predictions = self.predict(X, complete=True)
+            entr = self._loss(Y, predictions[-1], 'cross-entropy')
+            return None, 1 / num_datapoints * np.sum(entr)
+        else:
+            num_datapoints = X.shape[1]
+            predictions = self.predict(X, complete=True,batch_normalization=True)
+            entr = self._loss(Y, predictions[-1], 'cross-entropy')
+            return 1 / num_datapoints * np.sum(entr)
+
 
     def check_gradients_num(self, x, y, h):
         W_grads = []
@@ -170,3 +234,59 @@ class Classifier:
             W_grads.append(W_grad)
             b_grads.append(b_grad)
         return W_grads, b_grads
+
+
+
+    def check_gradients_num_batch(self, x, y, h):
+        grad_W = []
+        grad_b = []
+        grad_gamma = []
+        grad_beta = []
+
+        for i in range(len(self.layers)):
+            print('Computing numerical gradients... Layer ', str(i + 1))
+            grad_W.append(np.zeros_like(self.layers[i].W))
+            grad_b.append(np.zeros_like(self.layers[i].b))
+
+            for j in range(len(self.layers[i].b)):
+                self.layers[i].b[j] -= h
+                c1 = self.compute_cost_numerically(x, y,0,True)
+                self.layers[i].b[j] += 2 * h
+                c2 = self.compute_cost_numerically(x, y,0,True)
+
+                grad_b[i][j] = (c2 - c1) / (2 * h)
+                self.layers[i].b[j] -= h
+
+            for j in range(self.layers[i].W.shape[0]):
+                for l in range(self.layers[i].W.shape[1]):
+                    self.layers[i].W[j, l] -= h
+                    c1 = self.compute_cost_numerically(x, y,0,True)
+                    self.layers[i].W[j, l] += 2 * h
+                    c2 = self.compute_cost_numerically(x, y,0,True)
+
+                    grad_W[i][j, l] = (c2 - c1) / (2 * h)
+                    self.layers[i].W[j, l] -= h
+
+        for i in range(len(self.layers) - 1):
+            grad_gamma.append(np.zeros_like(self.layers[i].gamma))
+            grad_beta.append(np.zeros_like(self.layers[i].beta))
+
+            for j in range(len(self.layers[i].gamma)):
+                self.layers[i].gamma[j] -= h
+                c1 = self.compute_cost_numerically(x, y,0,True)
+                self.layers[i].gamma[j] += 2 * h
+                c2 = self.compute_cost_numerically(x, y,0,True)
+
+                grad_gamma[i][j] = (c2 - c1) / (2 * h)
+                self.layers[i].gamma[j] -= h
+
+            for j in range(len(self.layers[i].beta)):
+                self.layers[i].beta[j] -= h
+                c1 = self.compute_cost_numerically(x, y,0,True)
+                self.layers[i].beta[j] += 2 * h
+                c2 = self.compute_cost_numerically(x, y,0,True)
+
+                grad_beta[i][j] = (c2 - c1) / (2 * h)
+                self.layers[i].beta[j] -= h
+
+        return grad_W, grad_b, grad_gamma, grad_beta
