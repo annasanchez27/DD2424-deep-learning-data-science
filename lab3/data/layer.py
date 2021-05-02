@@ -37,7 +37,7 @@ class Layer:
             j_wrt_b = 1 / n * np.dot(Gbatch, np.ones((n, 1)))
             Gbatch = np.dot(self.W.T, Gbatch)
             Gbatch = np.multiply(Gbatch, np.heaviside(Xbatch, 0))
-            self.update_weights(j_wrt_w,j_wrt_b,eta)
+            self.update_weights(j_wrt_w,j_wrt_b,eta,0,0)
             return Gbatch,j_wrt_w,j_wrt_b
         else:
             j_wrt_gamma = 1/n* np.dot(np.multiply(Gbatch, self.Shat_batch),np.ones((n, 1)))
@@ -48,6 +48,7 @@ class Layer:
             j_wrt_b = 1 / n * np.dot(Gbatch, np.ones((n, 1)))
             Gbatch = np.dot(self.W.T,Gbatch)
             Gbatch = np.multiply(Gbatch,np.heaviside(Xbatch, 0))
+            self.update_weights(j_wrt_w,j_wrt_b,eta,j_wrt_gamma,j_wrt_beta)
             return Gbatch,j_wrt_w,j_wrt_b,j_wrt_gamma,j_wrt_beta
 
     def batch_normbackpass(self,gbatch):
@@ -61,13 +62,21 @@ class Layer:
         gbatch = g1 - 1/n*((g1@np.ones((n, 1)))@np.ones((n, 1)).T) - 1/n*np.multiply(d,np.dot(c,np.ones((n, 1)).T))
         return gbatch
 
-    def update_weights(self,j_wrt_w,j_wrt_b,eta):
+    def update_weights(self,j_wrt_w,j_wrt_b,eta,j_wrt_gamma,j_wrt_beta):
         self.W = self.W - eta * j_wrt_w
         self.b = self.b - eta * j_wrt_b
+        self.gamma = self.gamma - eta*j_wrt_gamma
+        self.beta = self.beta -eta*j_wrt_beta
 
 
 
     def compute_mean_variance(self, s):
+        alpha = 0.9
         n = s.shape[1]
         self.mean = np.mean(s,axis=1).reshape(-1, 1)
         self.variance = 1/n*np.sum((s-self.mean)**2,axis=1)
+        if(self.mean_avg.shape[1]==0):
+            self.mean_avg = self.mean
+            self.variance_avg = self.variance
+        self.mean_avg = alpha*self.mean_avg + (1-alpha)*self.mean
+        self.variance_avg = alpha*self.variance_avg + (1-alpha)*self.variance

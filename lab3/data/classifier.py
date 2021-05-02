@@ -12,13 +12,19 @@ class Classifier:
         layer = Layer(n, input_nodes)
         self.layers.append(layer)
 
-    def predict(self, X, complete=False,batch_normalization=False):
+    def predict(self, X, complete=False,batch_normalization=False,training=False):
         predictions = [X]
         for i in range(len(self.layers) - 1):
             if batch_normalization:
                 s = self.layers[i].predict_layer(X, 'batch')
                 self.layers[i].compute_mean_variance(s)
-                s_tild = self.batch_normalization(s,self.layers[i].mean,self.layers[i].variance)
+                if training:
+                    mean = self.layers[i].mean
+                    variance = self.layers[i].variance
+                else:
+                    mean = self.layers[i].mean_avg
+                    variance = self.layers[i].variance_avg
+                s_tild = self.batch_normalization(s,mean,variance)
                 self.layers[i].Shat_batch = s_tild
                 s_f = np.multiply(self.layers[i].gamma,s_tild) + self.layers[i].beta
                 X = np.maximum(np.zeros(shape=(s_f.shape)),s_f)
@@ -90,7 +96,7 @@ class Classifier:
             #first layer
             j_wrt_b1 = 1 / n * np.dot(g_batch, np.ones((n, 1)))
             j_wrt_w1 = 1 / n * np.dot(g_batch, X.T) + 2 * lambda_reg * self.layers[0].W
-            self.layers[0].update_weights(j_wrt_w1,j_wrt_b1,eta)
+            self.layers[0].update_weights(j_wrt_w1,j_wrt_b1,eta,0,0)
 
             weights.append(j_wrt_w1)
             bias.append(j_wrt_b1)
@@ -99,7 +105,7 @@ class Classifier:
             return weights, bias
         else:
             n = X.shape[1]
-            predictions_layers = self.predict(X, complete=True,batch_normalization=True)
+            predictions_layers = self.predict(X, complete=True,batch_normalization=True,training=True)
             g_batch = -(labels_onehot - predictions_layers[-1])
             weights = []
             bias = []
@@ -107,9 +113,9 @@ class Classifier:
             betas = []
             # last layer
             g_batch, j_wrt_w2, j_wrt_b2  = self.layers[-1].backward_layer(self.layers[-1].X,g_batch,eta,lambda_reg)
+            self.layers[-1].update_weights(j_wrt_w2,j_wrt_b2,eta,0,0)
             weights.append(j_wrt_w2)
             bias.append(j_wrt_b2)
-            print("LAST layer",j_wrt_w2.shape)
             # other layers
             for l in range(len(self.layers) - 2, -1, -1):
                 g_batch,j_wrt_w,j_wrt_b,j_wrt_gamma,j_wrt_beta =self.layers[l].backward_layer(self.layers[l].X,
@@ -127,7 +133,7 @@ class Classifier:
             return weights,bias,gammas,betas
 
     def fit(self, X_train, Y_train, X_val, Y_val, Ylabelstrain, Ylabelsval, loss_function, n_batch, eta,
-            n_epochs, lamda, eta_min, eta_max, n_s):
+            n_epochs, lamda, eta_min, eta_max, n_s,batch_norm=False):
 
         cost_train_total = []
         cost_val_total = []
@@ -147,13 +153,13 @@ class Classifier:
                 Y_batch = Y_train[:, j_start:j_end]
 
                 # Update weights
-                self.compute_gradients(X_batch, Y_batch, lamda, eta)
+                self.compute_gradients(X_batch, Y_batch, lamda, eta,batch_norm)
                 t = (t + 1) % (2 * n_s)
                 eta = self.set_eta(eta_min, eta_max, n_s, t)
 
             # Predict X_train and X_val
-            prediction_train = self.predict(X_train)
-            prediction_val = self.predict(X_val)
+            prediction_train = self.predict(X_train,batch_normalization=batch_norm)
+            prediction_val = self.predict(X_val,batch_normalization=batch_norm)
 
             """# Compute cost
             cost_train = self.compute_cost(X_train, Y_train, prediction_train, loss_function, lamda)
@@ -203,7 +209,7 @@ class Classifier:
             return None, 1 / num_datapoints * np.sum(entr)
         else:
             num_datapoints = X.shape[1]
-            predictions = self.predict(X, complete=True,batch_normalization=True)
+            predictions = self.predict(X, complete=True,batch_normalization=True,training=True)
             entr = self._loss(Y, predictions[-1], 'cross-entropy')
             return 1 / num_datapoints * np.sum(entr)
 
