@@ -6,8 +6,11 @@ class Layer:
 
     def __init__(self,n,input_nodes):
         np.random.seed(400)
-        xavier = math.sqrt(6)/(math.sqrt(n+input_nodes))
-        self.W = np.random.uniform(-xavier,xavier,size=(n, input_nodes))
+        stdev = 2/np.sqrt(input_nodes)
+        #xavier = math.sqrt(6)/(math.sqrt(n+input_nodes))
+        #self.W = np.random.uniform(-xavier,xavier,size=(n, input_nodes))
+        self.W = np.random.normal(0, stdev, size=(n, input_nodes))
+        #self.W = np.random.rand(n, input_nodes)*np.sqrt(2./input_nodes)
         self.b = np.zeros(shape=(n, 1))
         self.X = np.array([[]])
         self.Sbatch = np.array([[]])

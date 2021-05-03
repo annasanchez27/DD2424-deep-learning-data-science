@@ -25,11 +25,11 @@ def load_data():
             'test_data': test_data}
 
 def load_all_data():
-    train_data1 = load_batch("../cifar-10-batches-py/data_batch_1")
-    train_data2 = load_batch("../cifar-10-batches-py/data_batch_2")
-    train_data3 = load_batch("../cifar-10-batches-py/data_batch_3")
-    train_data4 = load_batch("../cifar-10-batches-py/data_batch_4")
-    train_data5 = load_batch("../cifar-10-batches-py/data_batch_5")
+    train_data1 = load_batch("cifar-10-batches-py/data_batch_1")
+    train_data2 = load_batch("cifar-10-batches-py/data_batch_2")
+    train_data3 = load_batch("cifar-10-batches-py/data_batch_3")
+    train_data4 = load_batch("cifar-10-batches-py/data_batch_4")
+    train_data5 = load_batch("cifar-10-batches-py/data_batch_5")
     data = np.concatenate((train_data1['data'], train_data2['data'], train_data3['data'],
                            train_data4['data'], train_data5['data'][:, :5000]), axis=1)
 
@@ -43,7 +43,7 @@ def load_all_data():
     validation_data = {'data': train_data5['data'][:,5000:],
                        'labels': train_data5['labels'][5000:],
                        'one_hot': train_data5['one_hot'][:,5000:]}
-    test_data = load_batch("../cifar-10-batches-py/test_batch")
+    test_data = load_batch("cifar-10-batches-py/test_batch")
     return {'train_data':train_data,
             'validation_data': validation_data,
             'test_data': test_data}

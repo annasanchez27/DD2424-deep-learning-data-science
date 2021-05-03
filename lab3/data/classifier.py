@@ -145,12 +145,16 @@ class Classifier:
         t = 0
         # 490 is one epoch
         for i in tqdm(range(n_epochs)):
+            indices = np.arange(Y_train.shape[1])
+            np.random.shuffle(indices)
+            X_shuffled = X_train[:,indices]
+            Y_shuffled = Y_train[:,indices]
             for j in range(int(n / n_batch)):
                 j = j + 1
                 j_start = (j - 1) * n_batch + 1
                 j_end = j * n_batch
-                X_batch = X_train[:, j_start:j_end]
-                Y_batch = Y_train[:, j_start:j_end]
+                X_batch = X_shuffled[:, j_start:j_end]
+                Y_batch = Y_shuffled[:, j_start:j_end]
 
                 # Update weights
                 self.compute_gradients(X_batch, Y_batch, lamda, eta,batch_norm)
