@@ -4,12 +4,15 @@ import math
 
 class Layer:
 
-    def __init__(self,n,input_nodes):
+    def __init__(self,n,input_nodes,sigma_exp=None):
         np.random.seed(400)
         stdev = 2/np.sqrt(input_nodes)
         #xavier = math.sqrt(6)/(math.sqrt(n+input_nodes))
         #self.W = np.random.uniform(-xavier,xavier,size=(n, input_nodes))
-        self.W = np.random.normal(0, stdev, size=(n, input_nodes))
+        if sigma_exp!=None:
+            self.W = np.random.normal(0, sigma_exp, size=(n, input_nodes))
+        else:
+            self.W = np.random.normal(0, stdev, size=(n, input_nodes))
         #self.W = np.random.rand(n, input_nodes)*np.sqrt(2./input_nodes)
         self.b = np.zeros(shape=(n, 1))
         self.X = np.array([[]])

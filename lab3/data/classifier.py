@@ -8,8 +8,8 @@ class Classifier:
     def __init__(self):
         self.layers = []
 
-    def add_layer(self, n, input_nodes):
-        layer = Layer(n, input_nodes)
+    def add_layer(self, n, input_nodes,sigma_exp=None):
+        layer = Layer(n, input_nodes,sigma_exp)
         self.layers.append(layer)
 
     def predict(self, X, complete=False,batch_normalization=False,training=False):
