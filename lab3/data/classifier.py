@@ -2,7 +2,7 @@ import numpy as np
 from src.utils import softmax
 from data.layer import Layer
 from tqdm import tqdm
-
+import random
 
 class Classifier:
     def __init__(self):
@@ -12,12 +12,16 @@ class Classifier:
         layer = Layer(n, input_nodes,sigma_exp)
         self.layers.append(layer)
 
-    def predict(self, X, complete=False,batch_normalization=False,training=False):
+    def predict(self, X, complete=False,batch_normalization=False,training=False,dropout=False,p=0.7):
         predictions = [X]
         for i in range(len(self.layers) - 1):
             if batch_normalization:
                 s = self.layers[i].predict_layer(X, 'batch')
                 self.layers[i].compute_mean_variance(s)
+                if dropout:
+                    p = 0.9
+                    u1 = np.random.binomial(1, p, size=s.shape) / p
+                    s *= u1
                 if training:
                     mean = self.layers[i].mean
                     variance = self.layers[i].variance
@@ -52,9 +56,6 @@ class Classifier:
             return prediction"""
 
     def batch_normalization(self,s,mu,v):
-        #first = np.sqrt(np.diag(v+np.finfo(float).eps))
-        #second = s-mu
-        #return np.dot(first, second)
         return np.linalg.inv(np.diag(np.sqrt(v + np.finfo(float).eps))) @ (s - mu)
 
 
@@ -80,7 +81,7 @@ class Classifier:
         pred = np.argmax(prediction, axis=0)
         return np.sum(pred == labels) / len(prediction[0]) * 100
 
-    def compute_gradients(self, X, labels_onehot, lambda_reg, eta, batch_norm=False):
+    def compute_gradients(self, X, labels_onehot, lambda_reg, eta, batch_norm=False,dropout=False):
         """Equation (10) and (11) in the assigment. Look last slides Lecture 3"""
         if batch_norm == False:
             n = X.shape[1]
@@ -105,7 +106,7 @@ class Classifier:
             return weights, bias
         else:
             n = X.shape[1]
-            predictions_layers = self.predict(X, complete=True,batch_normalization=True,training=True)
+            predictions_layers = self.predict(X, complete=True,batch_normalization=True,training=True,dropout=dropout)
             g_batch = -(labels_onehot - predictions_layers[-1])
             weights = []
             bias = []
@@ -133,7 +134,7 @@ class Classifier:
             return weights,bias,gammas,betas
 
     def fit(self, X_train, Y_train, X_val, Y_val, Ylabelstrain, Ylabelsval, loss_function, n_batch, eta,
-            n_epochs, lamda, eta_min, eta_max, n_s,batch_norm=False):
+            n_epochs, lamda, eta_min, eta_max, n_s,batch_norm=False,dropout=False):
 
         cost_train_total = []
         cost_val_total = []
@@ -157,7 +158,7 @@ class Classifier:
                 Y_batch = Y_shuffled[:, j_start:j_end]
 
                 # Update weights
-                self.compute_gradients(X_batch, Y_batch, lamda, eta,batch_norm)
+                self.compute_gradients(X_batch, Y_batch, lamda, eta,batch_norm,dropout)
                 t = (t + 1) % (2 * n_s)
                 eta = self.set_eta(eta_min, eta_max, n_s, t)
 
