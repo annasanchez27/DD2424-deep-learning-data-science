@@ -81,8 +81,11 @@ class Classifier:
         pred = np.argmax(prediction, axis=0)
         return np.sum(pred == labels) / len(prediction[0]) * 100
 
-    def compute_gradients(self, X, labels_onehot, lambda_reg, eta, batch_norm=False,dropout=False):
+    def compute_gradients(self, X, labels_onehot, lambda_reg, eta, batch_norm=False,dropout=False,jitter=False):
         """Equation (10) and (11) in the assigment. Look last slides Lecture 3"""
+        if jitter:
+            noise = np.random.normal(0, 0.1, size=X.shape)
+            X = X + noise
         if batch_norm == False:
             n = X.shape[1]
             predictions_layers = self.predict(X, complete=True)
@@ -134,7 +137,7 @@ class Classifier:
             return weights,bias,gammas,betas
 
     def fit(self, X_train, Y_train, X_val, Y_val, Ylabelstrain, Ylabelsval, loss_function, n_batch, eta,
-            n_epochs, lamda, eta_min, eta_max, n_s,batch_norm=False,dropout=False):
+            n_epochs, lamda, eta_min, eta_max, n_s, batch_norm=False, dropout=False, jitter=False):
 
         cost_train_total = []
         cost_val_total = []
@@ -158,7 +161,7 @@ class Classifier:
                 Y_batch = Y_shuffled[:, j_start:j_end]
 
                 # Update weights
-                self.compute_gradients(X_batch, Y_batch, lamda, eta,batch_norm,dropout)
+                self.compute_gradients(X_batch, Y_batch, lamda, eta,batch_norm,dropout,jitter)
                 t = (t + 1) % (2 * n_s)
                 eta = self.set_eta(eta_min, eta_max, n_s, t)
 
