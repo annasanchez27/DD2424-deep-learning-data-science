@@ -21,7 +21,9 @@ class RNN:
         return np.exp(x) / np.sum(np.exp(x), axis=0)
 
     def forward_pass(self, h, x):
-        a_t = self.W @ h + self.U @ x + self.b
+        h = h.reshape(-1,1)
+        x = x.reshape(-1,1)
+        a_t = np.dot(self.W, h) + np.dot(self.U,x) + self.b
         h = np.tanh(a_t)
         o_t = self.V @ h + self.c
         p_t = self.softmax(o_t)
@@ -44,7 +46,40 @@ class RNN:
             cum_sum = np.cumsum(p_t)
             a = random.uniform(0, 1)
             idx = np.where(np.logical_and(cum_sum >= a))[0]
-            xnext = np.zeros((self.k, 1))
-            xnext[idx] = 1
+            x0 = np.zeros((self.k, 1))
+            x0[idx] = 1
             sequence += self.ind_to_char[idx]
         return sequence
+
+    def compute_gradients(self, read_data, sequence_length):
+        # Sequence of input characters from the text
+        input_chars = read_data['data'][0: sequence_length]
+        target_chars = read_data['data'][1: sequence_length + 1]
+
+        # Convert to one-hot encoding
+        input_labels = self.encode(input_chars, read_data['char_to_ind'])
+        target_labels = self.encode(target_chars, read_data['char_to_ind'])
+        print(input_labels.shape)
+
+        # Initialize storage
+        p_list, h_list = [], []
+
+        # Initial state
+        h0 = np.zeros(self.m)
+        h_list.append(h0)
+
+        # Forward pass
+        for t in range(sequence_length):
+            h, p = self.forward_pass(h_list[-1], input_labels[:, t])
+            h_list.append(h)
+            p_list.append(p)
+
+        # Loss
+        p_list = np.array(p_list)[:,:,0].T
+        loss = -sum(np.log(np.multiply(target_labels, p_list).sum(axis=0)))
+        print(f"The loss is {loss}")
+
+    def encode(self,input_text, char_to_ind):
+        indices = [char_to_ind[char] for char in input_text]
+        one_hot_encoding = (np.eye(len(char_to_ind.keys()))[indices]).T
+        return one_hot_encoding
