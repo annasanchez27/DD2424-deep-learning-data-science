@@ -10,7 +10,7 @@ def encode(input_text, char_to_ind):
 
 
 class RNN:
-    def __init__(self, k, m=100, sig=0.001):
+    def __init__(self, k, m=5, sig=0.01):
         random.seed(42)
         # TODO: set eta
         # TODO: set length of input sequence
