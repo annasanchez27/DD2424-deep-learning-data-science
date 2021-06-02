@@ -1,7 +1,7 @@
 import numpy as np
 import random
 from tqdm import tqdm
-
+import copy
 
 def encode(input_text, char_to_ind):
     indices = [char_to_ind[char] for char in input_text]
@@ -68,20 +68,17 @@ class RNN:
         h_list.append(h0)
 
         # Forward pass
-        for t in range(sequence_length):
-            h, p, a = self.forward_pass(h_list[-1], input_labels[:, t])
-            h_list.append(h)
-            p_list.append(p)
-            a_list.append(a)
-        # Loss
+        h, p,a,loss = self.forward4(h0,input_labels,target_labels)
+
+        """# Loss
         p_list = np.array(p_list)[:, :, 0].T
         h_list = np.array(h_list)[:, :, 0].T
         a_list = np.array(a_list)[:, :, 0].T
 
-        loss = self.calculate_loss(p_list, target_labels)
+        loss = self.calculate_loss(p_list, target_labels)"""
 
         # Backward pass
-        grads = self.backward(input_labels, target_labels, p_list, h_list, sequence_length,a_list)
+        grads = self.backward4(input_labels, target_labels, p, h, a)
 
         return grads, loss
 
@@ -141,10 +138,14 @@ class RNN:
         grads['U'] = np.dot(l_wrt_a, input_labels.T)
         grads['W'] = np.dot(l_wrt_a, h_list[:, :-1].T)
         grads['b'] = np.sum(l_wrt_a,axis=1).reshape(-1,1)
+
+        for grad in grads.keys():
+            grads[grad] = np.clip(grads[grad], -5, 5)
+
         grads['h'] = h[:-1]
         return grads
 
-    def compute_grads_num(self, X, Y, h):
+    def compute_grads_num(self, X, Y, h=1e-4):
         grads = self.blank_parameters()
         for key in tqdm(self.param):
             for i in range(self.param[key].shape[0]):
@@ -191,29 +192,88 @@ class RNN:
         grads['b'] = np.sum(dLda, axis=-1, keepdims=True)
         return grads
 
+
+
+    def backward4(self, X, Y, p, h, a):
+        # Extract initial hidden state (sequence time 0)
+        h0 = h[0]
+        h = h[1:]
+
+        # Initialize the gradients matrix
+        grads = self.blank_parameters()
+
+        # Iterate inversively the input sequence of one hot encoded characters
+        seq_length = X.shape[1]
+        grad_a = [None] * seq_length
+        for t in range((seq_length - 1), -1, -1):
+            g = -(Y[:, [t]] - p[t]).T
+            grads['V'] += g.T @ h[t].T
+            grads['c'] += g.T
+            if t < (seq_length - 1):
+                dL_h = g @ self.param['V'] + grad_a[t + 1] @ self.param['W']
+            else:
+                dL_h = g @ self.param['V']
+            grad_a[t] = dL_h @ np.diag(1 - h[t][:, 0] ** 2)
+            if t == 0:
+                grads['W'] += grad_a[t].T @ h0.T
+            else:
+                grads['W'] += grad_a[t].T @ h[t - 1].T
+            grads['U'] += grad_a[t].T @ X[:, [t]].T
+            grads['b'] += grad_a[t].T
+
+        # Clipping gradients
+        #for parameter in ['b', 'c', 'U', 'W', 'V']:
+            #grads[parameter] = np.clip(GRADS[parameter], -5, 5)
+
+        return grads
+
+    def forward4(self, h0,X,Y=None):
+
+        # Create empty lists for storing the final and intermediary vectors (by sequence iterations)
+        seq_length = X.shape[1]
+        p, o, h, a = [None] * seq_length, [None] * seq_length, [None] * seq_length, [None] * seq_length
+
+        # Iterate the input sequence of one hot encoded characters
+        loss = 0
+        for t in range(seq_length):
+            if t == 0:
+                a[t] = self.param['W'] @ h0 + self.param['U'] @ X[:, [t]] + self.param['b']
+            else:
+                a[t] = self.param['W'] @ h[t - 1] + self.param['U'] @ X[:, [t]] + self.param['b']
+            h[t] = np.tanh(a[t])
+            o[t] = self.param['V'] @ h[t] + self.param['c']
+            p[t] = self.softmax(o[t])
+
+            loss -= np.log(Y[:, [t]].T @ p[t])[0, 0]
+
+        return [h0] + h, p,a,loss
+
+
     def fit(self, read_data,sequence_length, learning_rate=0.1):
         MAX_ITERATIONS = 100000
         data = read_data['data']
-        e = 1
-        smooth_loss = -np.log(1 / self.k) * sequence_length
+        e = 0
         smooth_losses = []
+
         #h = np.zeros((self.m, 1))
         for it in range(MAX_ITERATIONS):
+
             if e >= len(data) - sequence_length - 1:
                 e = 0
             input_chars = data[e: e + sequence_length]
             target_chars = data[e + 1: e + 1 + sequence_length]
             X = encode(input_chars, read_data['char_to_ind'])
             Y = encode(target_chars, read_data['char_to_ind'])
-
             grads,loss = self.compute_gradients(X, Y)
-            #h = grads['h']
+
+            if e == 0:
+                smooth_loss = loss
             smooth_loss = (0.999 * smooth_loss) + (0.001 * loss)
             smooth_losses.append(smooth_loss)
             for key in self.param.keys():
-                self.param[key] += - (learning_rate * grads[key] ** 2) / np.sqrt(grads[key] ** 2 + 1e-8)
-
-            if it % 10000 == 0:
+                self.param[key] -= learning_rate / np.sqrt(np.square(grads[key]) +
+                                                     np.finfo(float).eps) * grads[key]
+            if it % 100 == 0:
                 print("iter = " + str(it), "loss = " + str(smooth_loss))
 
             e += sequence_length
