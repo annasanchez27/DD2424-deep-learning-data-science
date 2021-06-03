@@ -106,58 +106,6 @@ class RNN(object):
         grads = self.backward(X, Y, p, h, a)
         return grads,loss,h[-1]
 
-    """def fit(self, read_data, sequence_length,learning_rate=0.1):
-        MAX_ITERATIONS = 100000
-        data = read_data['data']
-
-        e = 0
-        smooth_losses = []
-
-        # h = np.zeros((self.m, 1))
-        for it in range(MAX_ITERATIONS):
-
-            if e >= len(data) - sequence_length - 1:
-                e = 0
-            input_chars = data[e: e + sequence_length]
-            target_chars = data[e + 1: e + 1 + sequence_length]
-            X = encode(input_chars, read_data['char_to_ind'])
-            Y = encode(target_chars, read_data['char_to_ind'])
-            grads, loss = self.compute_gradients(X, Y)
-
-            if e == 0:
-                smooth_loss = loss
-            smooth_loss = (0.999 * smooth_loss) + (0.001 * loss)
-            smooth_losses.append(smooth_loss)
-            for key in self.param.keys():
-                self.param[key] -= learning_rate / np.sqrt(np.square(grads[key]) +
-                                                           np.finfo(float).eps) * grads[key]
-            if it % 100 == 0:
-                print("iter = " + str(it), "loss = " + str(smooth_loss))
-
-            e += sequence_length"""
-
-    def synthesize_seq_chars(self, h0, x0, n):
-        """
-        Synthesize a sequence of characters using
-        the current parameter values in the RNN.
-        (Eq 1- Eq 4)
-        :param h0: hidden state at time 0
-        :param x0: first (dummy) input vector to your RNN
-        :param n: length of the sequence that will be generated
-        :return:
-        """
-        np.random.seed(42)
-        sequence = ""
-        for t in range(n):
-            p_t,h,_ = self.forward(x0,h0)
-            # Randomly select character
-            cum_sum = np.cumsum(p_t)
-            a = np.random.uniform(0, 1)
-            idx = np.where((cum_sum >= a))[0][0]
-            x0 = np.zeros((self.k, 1))
-            x0[idx] = 1
-            sequence += self.ind_to_char[idx]
-        return sequence
 
     def synthesize(self, x0, h0, length):
         x = x0
@@ -175,22 +123,15 @@ class RNN(object):
             h_prev = h
         return sequence
 
-    def fit(self,read_data,sequence_length,eta=0.01):
-        # Book position tracker, iteration, epoch
-        e, n, epoch = 0, 0, 0
-        num_epochs = 10
-
-
+    def fit(self,read_data,sequence_length,eta=0.1,max_epochs=10):
+        e, iteration, epoch = 0, 0, 0
+        loss_list = []
         data = read_data['data']
-        rnn_params = {"W": self.param["W"], "U": self.param["U"], "V": self.param["V"], "b": self.param["b"], "c": self.param["c"]}
 
-        mem_params = {"W": np.zeros_like(self.param["W"]), "U": np.zeros_like(self.param["U"]),
-             "V": np.zeros_like(self.param["V"]), "b": np.zeros_like(self.param["b"]),
-                      "c": np.zeros_like(self.param["c"])}
+        rnn_params,mem_params = self.init_adagrad()
 
-        while epoch < num_epochs:
-            if n == 0 or e >= (len(data) - sequence_length - 1):
-                if epoch != 0: print("Finished %i epochs." % epoch)
+        while epoch < max_epochs:
+            if iteration == 0 or e >= (len(data) - sequence_length - 1):
                 e = 0
                 h_prev = np.zeros((self.m, 1))
                 epoch += 1
@@ -201,15 +142,15 @@ class RNN(object):
             targets = encode(target_chars, read_data['char_to_ind'])
             grads, loss, h_prev = self.compute_gradients(inputs, targets,h_prev)
 
-            # Compute the smooth loss
-            if n == 0 and epoch == 1:
+            if iteration == 0 and epoch == 1:
                 smooth_loss = loss
 
             smooth_loss = 0.999 * smooth_loss + 0.001 * loss
-
-            if n % 1000 == 0:
-                print('Iteration %d, smooth loss: %f, Epoch %d' % (n, smooth_loss,epoch))
-                synthesize_one_hot = self.synthesize(inputs[:, [0]], h_prev, 200)
+            loss_list.append(smooth_loss)
+            if iteration % 10 == 0:
+                print("Loss", loss)
+                print("Iteration", iteration)
+                synthesize_one_hot = self.synthesize(inputs[:, [0]], h_prev, 1000)
                 print(synthesize_one_hot)
 
             # Adagrad
@@ -219,4 +160,18 @@ class RNN(object):
                                                      np.finfo(float).eps) * grads[key]
 
             e += sequence_length
-            n += 1
+            iteration += 1
+        print("LAST ONE",iteration, smooth_loss,epoch )
+        synthesize_one_hot = self.synthesize(inputs[:, [0]], h_prev, 1000)
+        print(synthesize_one_hot)
+        return loss_list
+
+    def init_adagrad(self):
+        rnn = {"W": self.param["W"], "U": self.param["U"], "V": self.param["V"], "b": self.param["b"],
+                      "c": self.param["c"]}
+
+        mem = {"W": np.zeros(self.param["W"].shape), "U": np.zeros(self.param["U"].shape),
+                      "V": np.zeros(self.param["V"].shape), "b": np.zeros(self.param["b"].shape),
+                      "c": np.zeros(self.param["c"].shape)}
+
+        return rnn,mem
