@@ -136,10 +136,50 @@ class RNN(object):
 
             e += sequence_length"""
 
+    def synthesize_seq_chars(self, h0, x0, n):
+        """
+        Synthesize a sequence of characters using
+        the current parameter values in the RNN.
+        (Eq 1- Eq 4)
+        :param h0: hidden state at time 0
+        :param x0: first (dummy) input vector to your RNN
+        :param n: length of the sequence that will be generated
+        :return:
+        """
+        np.random.seed(42)
+        sequence = ""
+        for t in range(n):
+            p_t,h,_ = self.forward(x0,h0)
+            # Randomly select character
+            cum_sum = np.cumsum(p_t)
+            a = np.random.uniform(0, 1)
+            idx = np.where((cum_sum >= a))[0][0]
+            x0 = np.zeros((self.k, 1))
+            x0[idx] = 1
+            sequence += self.ind_to_char[idx]
+        return sequence
+
+    def synthesize(self, x0, h0, length):
+        x = x0
+        h_prev = h0
+        sequence = ""
+        for t in range(length):
+            a = self.param["W"]@ h_prev + self.param["U"] @ x + self.param["b"]
+            h = np.tanh(a)
+            o = self.param["V"] @ h + self.param["c"]
+            p = self.softmax(o)
+            x = np.zeros((self.k, 1))
+            it = np.random.choice(range(self.k), p=p.flat)
+            x[it] = 1
+            sequence += self.ind_to_char[it]
+            h_prev = h
+        return sequence
+
     def fit(self,read_data,sequence_length,eta=0.01):
         # Book position tracker, iteration, epoch
         e, n, epoch = 0, 0, 0
         num_epochs = 10
+
 
         data = read_data['data']
         rnn_params = {"W": self.param["W"], "U": self.param["U"], "V": self.param["V"], "b": self.param["b"], "c": self.param["c"]}
@@ -151,24 +191,26 @@ class RNN(object):
         while epoch < num_epochs:
             if n == 0 or e >= (len(data) - sequence_length - 1):
                 if epoch != 0: print("Finished %i epochs." % epoch)
-                hprev = np.zeros((self.m, 1))
                 e = 0
+                h_prev = np.zeros((self.m, 1))
                 epoch += 1
 
             input_chars = data[e: e + sequence_length]
             target_chars = data[e + 1: e + 1 + sequence_length]
             inputs = encode(input_chars, read_data['char_to_ind'])
             targets = encode(target_chars, read_data['char_to_ind'])
-            grads, loss, hprev = self.compute_gradients(inputs, targets,hprev)
+            grads, loss, h_prev = self.compute_gradients(inputs, targets,h_prev)
 
             # Compute the smooth loss
-            if n == 0 and epoch == 1: smooth_loss = loss
+            if n == 0 and epoch == 1:
+                smooth_loss = loss
+
             smooth_loss = 0.999 * smooth_loss + 0.001 * loss
 
-
-            # Print the loss
-            if n % 100 == 0: print('Iteration %d, smooth loss: %f' % (n, smooth_loss))
-
+            if n % 1000 == 0:
+                print('Iteration %d, smooth loss: %f, Epoch %d' % (n, smooth_loss,epoch))
+                synthesize_one_hot = self.synthesize(inputs[:, [0]], h_prev, 200)
+                print(synthesize_one_hot)
 
             # Adagrad
             for key in rnn_params:
